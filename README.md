@@ -9,42 +9,22 @@ This project is designed to make the process of updating or installing large mod
 
 - **Easy to use**: Just run and follow the instructions—no complex setup!
 - **Cross-platform**: Works on **Windows, macOS, and Linux**.
-- **Backs up your old mods**: Automatically renames your current `mods` folder to `mods-old` before installing new mods.
-- **Download and extract**: Pulls your chosen modpack ZIP from a URL and installs it in seconds.
+- **Safe by default**: Your current `mods` folder is moved to a timestamped `mods-backup-YYYYMMDD-HHMMSS` folder before new mods are installed. Nothing is ever deleted without your confirmation.
+- **Many sources**: install from a **URL**, a **local `.zip` / `.mrpack` file** (Browse button, drag and drop, or `--file`), or a **Modrinth modpack** (project slug or link).
+- **Understands `.mrpack`**: downloads the files listed in `modrinth.index.json`, verifies their SHA-1/SHA-512 hashes and applies `overrides/` and `client-overrides/`.
+- **Auto-detects ZIP layouts**: full Minecraft folder layouts and legacy "flat jar" ZIPs both work.
+- **Careful with your settings**: choose whether existing config files are overwritten, kept, or backed up first. `options.txt` and `servers.dat` are never overwritten by default.
 
 ---
 
 ## 🚀 Usage
 
-### 1. Using the GUI (Recommended)
+### 1. Using the Installer
 
 1. **Download the GUI version** of the installer from the [Releases](../../releases) tab.  
 2. Launch the application by double-clicking it.  
-3. Enter your **modpack URL** in the provided field or browse for a local ZIP file.  
-4. Click **Install** and follow the on-screen prompts. Your mods will be installed automatically!  
-
----
-
-### 2. Using the Command-Line (Optional)
-
-If you prefer the classic terminal approach:
-
-1. **Download the prebuilt executable** for your OS from the [Releases](../../releases) tab.  
-2. Open `cmd` (Windows) or your terminal (macOS/Linux).  
-3. Run the installer with your modpack URL:  
-
-   **Windows:**  
-   ```bash
-   ModpackInstaller-Win.exe --url https://your.modpack.url/modpack.zip
-   ```
-   **macOS/Linux**
-   ```bash
-   ./ModpackInstaller-Linux --url https://your.modpack.url/modpack.zip
-   ./ModpackInstaller-OSX --url https://your.modpack.url/modpack.zip
-   ```
-
-> **Note:**  
-> The modpack **must be a ZIP file** containing all necessary mods.
+3. Paste a **modpack URL**, a **Modrinth link or slug**, or pick a local file with **Browse...** (you can also drag a `.zip` / `.mrpack` onto the window).  
+4. Choose whether to back up your mods folder and what to do with existing config files.  
 
 ---
 
@@ -58,30 +38,56 @@ Want to make installing modpacks even easier for your players or server communit
 
 ## 🛠 Building From Source
 
-1. Install [.NET 8 SDK](https://dotnet.microsoft.com/download)
+1. Install [.NET 9 SDK](https://dotnet.microsoft.com/download)
 2. Clone this repo:
    ```
    git clone https://github.com/MrGidor/Minecraft_Modpack_Installer.git
    ```
 3. Build:
-   GUI Version:
    ```
    dotnet publish Gui/Gui.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:PublishTrimmed=false
    ```
-   Terminal command version:
-   ```
-   dotnet publish Cli/Cli.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:PublishTrimmed=false
-   ```
    Replace `win-x64` with `linux-x64` or `osx-x64` as needed.
-5. Your standalone executable will be in the `\bin\Release\net8.0\win-x64\publish` folder.
+5. Your standalone executable will be in the `\bin\Release\net9.0\win-x64\publish` folder.
 
 ---
 
-## 📦 What Kind of Modpacks?
+### Running the tests
 
-- Your modpack **must be a `.zip` file**.
-- Inside the ZIP, include all mods you want installed (typically all `.jar` files for `/mods`).
-- You can include additional folders (e.g., configs), but the installer extracts everything into your Minecraft `mods` folder, so it's worthless to include those in the zip.
+```
+dotnet test
+```
+
+---
+
+## 📦 Supported Modpack Formats
+
+The installer looks at the **contents** of the archive, not its file name:
+
+| Format | Detected by | What happens |
+| --- | --- | --- |
+| **`.mrpack`** (Modrinth) | `modrinth.index.json` at the root | Files are downloaded and hash-checked, then `overrides/` and `client-overrides/` are extracted into the Minecraft folder. Files marked `env.client = unsupported` are skipped. `server-overrides/` is ignored. |
+| **Full layout ZIP** | top-level `mods/`, `config/`, `resourcepacks/`, `shaderpacks/`, `saves/`, `scripts/`, `defaultconfigs/`, `kubejs/`, `datapacks/`, `schematics/` | Extracted into the Minecraft folder. Other root files are ignored. |
+| **Flat jar ZIP** (legacy) | `.jar` files and none of the folders above | Everything is extracted into `mods/`. |
+
+A single wrapper folder inside the ZIP (for example `MyPack/mods/...`) is removed automatically. The installer does **not** install Minecraft or a mod loader; it tells you which versions an `.mrpack` requires.
+
+### Safety rules
+
+- Entries with `..` or absolute paths are rejected before anything is written.
+- `.mrpack` downloads are only accepted from `https` URLs on `cdn.modrinth.com`, `github.com`, `raw.githubusercontent.com` and `gitlab.com`, and every file must match its SHA-1/SHA-512 hash. Files are downloaded to a staging folder first, so a failed download leaves your mods untouched.
+- Launcher files (`launcher_*`) and the `versions`, `libraries`, `assets` and `runtime` folders are never written.
+- Your previous `mods` folder is only deleted if you turn the backup off **and** confirm.
+
+### Config policy
+
+| Policy | Existing file |
+| --- | --- |
+| Backup, then overwrite (default) | copied to `modpack_installer/config-backup-<timestamp>/`, then replaced |
+| Overwrite | replaced |
+| Keep existing | left as is |
+
+`options.txt` and `servers.dat` are never overwritten unless you pass `--overwrite-protected`.
 
 ---
 
